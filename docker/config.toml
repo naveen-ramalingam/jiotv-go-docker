@@ -1,0 +1,4 @@
+path_prefix = "/data"
+log_path = "/data/logs"
+log_to_stdout = true
+debug = false

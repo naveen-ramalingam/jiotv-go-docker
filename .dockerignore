@@ -1,0 +1,10 @@
+**
+!Dockerfile
+!upstream.lock.json
+!LICENSE.upstream
+!NOTICE.md
+!docker/
+!docker/**
+!scripts/
+!scripts/fetch_binary.py
+!scripts/release_utils.py

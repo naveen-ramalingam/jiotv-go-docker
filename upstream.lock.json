@@ -1,0 +1,17 @@
+{
+  "version": "v3.22.0",
+  "source": "https://github.com/JioTV-Go/jiotv_go",
+  "release_url": "https://github.com/JioTV-Go/jiotv_go/releases/tag/v3.22.0",
+  "assets": {
+    "amd64": {
+      "url": "https://github.com/JioTV-Go/jiotv_go/releases/download/v3.22.0/jiotv_go-linux-amd64",
+      "sha256": "cbaec3c9a3c04e54b8689a990a49b1dd35b5d20310e69dfd137d54e54652ef34",
+      "size": 19337378
+    },
+    "arm64": {
+      "url": "https://github.com/JioTV-Go/jiotv_go/releases/download/v3.22.0/jiotv_go-linux-arm64",
+      "sha256": "360d3eaa692514fba8d6e1b864d769f9cc0a91b56fe5a3ef6dcef0763c31b469",
+      "size": 18219170
+    }
+  }
+}

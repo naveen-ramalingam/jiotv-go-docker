@@ -1,0 +1,297 @@
+# JioTV Go — private Docker packaging
+
+Private repository: <https://github.com/naveen-ramalingam/jiotv-go-docker>
+
+- Initial packaging release: **v1.0.0**
+- Upstream application: **JioTV Go v3.22.0**
+- Image: **`ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0`**
+- Platforms: **linux/arm64** (Raspberry Pi 5) and **linux/amd64**
+
+GitHub Actions builds and publishes the image into the account's private
+GitHub Container Registry package. Source and image access require your
+GitHub permissions. New GHCR packages are private by default; this project
+links the image to the private repository through its OCI source label.
+
+## Included
+
+- Official upstream executables pinned by release, architecture, size, and
+  SHA-256 in `upstream.lock.json`.
+- DRM and EPG enabled by default. JioTV Go refreshes EPG every 24 hours.
+- HTTPS on container port 5002, with a per-installation certificate generated
+  on first startup and preserved across restarts.
+- Persistent `/data` for login state and programme guide, and `/tls` for TLS.
+- Application process runs as UID/GID 10001 with no effective capabilities.
+  A short root entrypoint prepares volume ownership and then drops privileges.
+- Read-only container root filesystem, bounded Docker logs, health check,
+  restart policy, and Compose deployment.
+- Daily upstream discovery in GitHub Actions at **04:15 IST / 22:45 UTC**.
+  A new stable upstream version advances the packaging patch version,
+  refreshes both architecture checksums, and dispatches a GitHub image build.
+  GitHub scheduled workflows may start later than their nominal time.
+
+Certificates, login state, OTPs, tokens, local `.env`, and data volumes are
+created at deployment time. The build context uses an allowlist and contains
+none of those installation secrets.
+
+## Pull the private image
+
+Create a GitHub token with `read:packages` access to this package. Authenticate
+on the Docker host using stdin, rather than placing a token in Compose or the
+image:
+
+```sh
+read -r -s GHCR_READ_TOKEN
+printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io \
+  --username naveen-ramalingam --password-stdin
+unset GHCR_READ_TOKEN
+docker pull ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0
+```
+
+`read -s` is for Bash; run these commands in Bash if the current shell does
+not support it. Docker keeps registry authentication in its host credential
+configuration. On a host already using another GitHub account for GHCR,
+review that account's pulls before replacing its registry login, or use a
+separate `DOCKER_CONFIG` directory for this deployment.
+
+## Deploy with Compose
+
+Download the deployment archive from the private GitHub release, or clone
+this repository with the intended GitHub account:
+
+```sh
+git clone https://github.com/naveen-ramalingam/jiotv-go-docker.git
+cd jiotv-go-docker
+cp .env.example .env
+```
+
+Edit `.env` for the host's LAN address and available port. The example is:
+
+```dotenv
+IMAGE=ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0
+BIND_IP=192.168.1.50
+HOST_PORT=5002
+TZ=Asia/Kolkata
+JIOTV_EPG=true
+JIOTV_DRM=true
+JIOTV_TLS_NAMES=192.168.1.50,dietpi.lan
+```
+
+`localhost` and `127.0.0.1` are always included in generated certificates so
+the internal health check can validate TLS. `JIOTV_TLS_NAMES` adds the
+addresses and hostnames clients will use. If `.env` is absent, Compose binds
+only to loopback by default.
+
+Then:
+
+```sh
+docker compose config --quiet
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail 50
+```
+
+Open <https://192.168.1.50:5002/>, accept or trust the local certificate, and
+sign in with the Jio mobile number and OTP. Browser DRM playback requires
+HTTPS; upstream lists Chrome and Firefox as supported browsers. Available
+channels depend on the account's entitlements.
+
+The default volumes are `jiotv-go-data` and `jiotv-go-tls`. Keep both when
+recreating the container. Changing `JIOTV_TLS_NAMES` does not replace an
+existing certificate automatically; renew the certificate deliberately if
+the deployment address changes.
+
+## Existing Pi installation and migration
+
+The original Pi installation uses a native `jiotv-go.service` on port 5002
+and a daily `jiotv-go-update.timer`. Docker tests use a different,
+loopback-only port and disposable volumes.
+
+To run a fresh Docker instance alongside it, choose another port, for example
+`HOST_PORT=5003`. A fresh volume starts a separate login session.
+
+For a deliberate migration preserving the current login and EPG:
+
+1. Make a protected backup of `/var/lib/jiotv-go/`, `/etc/jiotv-go/`, and the
+   native systemd units, following the existing Pi setup guide.
+2. Stop the native updater timer and let an in-progress updater finish.
+3. Stop the native application so its state can be copied consistently.
+4. Create the two Docker volumes. Copy the **contents** of the native
+   `/var/lib/jiotv-go/` into `jiotv-go-data`, and `server.crt` plus `server.key`
+   from `/etc/jiotv-go/` into `jiotv-go-tls`. Keep all files in the data folder,
+   rather than selecting a historical credential filename.
+5. Start Compose on the original port. The entrypoint adjusts volume
+   ownership for UID/GID 10001. Validate browser login state, playback,
+   playlist, and EPG before disabling the native application at boot.
+
+The Docker image uses immutable application files; upgrading means replacing
+the container image. The native host binary updater is not used inside it.
+
+## TiviMate
+
+All channels grouped by category and language:
+
+```text
+https://192.168.1.50:5002/playlist.m3u?q=high&c=split
+```
+
+Language-only groups such as Tamil, Hindi, and English:
+
+```text
+https://192.168.1.50:5002/playlist.m3u?q=high&c=language
+```
+
+Tamil-only channels, with category groups:
+
+```text
+https://192.168.1.50:5002/playlist.m3u?q=high&c=split&l=Tamil
+```
+
+Programme guide:
+
+```text
+https://192.168.1.50:5002/epg.xml.gz
+```
+
+In TiviMate, add an M3U playlist and assign the EPG source to it. Enable the
+TV app's EPG refresh as well. After editing a playlist URL, update the playlist.
+Adjust the host port in these URLs if Compose uses a different host port.
+
+The recommended URLs include subscription-labelled channels. Adding
+`sub=hide` hides them even when the account can play them; this previously
+hid Sun Music HD and Star Vijay HD in the Pi setup.
+
+A self-signed certificate may be rejected by a TV app. It needs a certificate
+the app trusts, or a separately configured LAN proxy, if SSL import fails.
+DRM playback also depends on the player/device. A successful playlist import
+does not validate every stream. The checked upstream playlist contains no
+TiviMate catch-up attributes; the web UI's Catchup toggle is a separate,
+unverified feature.
+
+## Updates and releases
+
+The packaging version is independent from the upstream application version.
+`v1.0.0` packages upstream `v3.22.0`; the lock file records the mapping.
+
+The GitHub workflow `Check upstream stable release` runs daily at 22:45 UTC
+and can also be run manually. For a newer stable upstream release it:
+
+1. Requires official ARM64 and AMD64 assets with GitHub SHA-256 digests.
+2. Updates `upstream.lock.json` and increments the packaging patch version.
+3. Commits those files, creates the new `v*` tag, and explicitly dispatches
+   `release.yml`. The explicit dispatch is necessary because pushes made by
+   `GITHUB_TOKEN` do not trigger another workflow by themselves.
+4. The release workflow validates the project, builds and smoke-tests a
+   native image, then builds and pushes the ARM64/AMD64 manifest on GitHub.
+5. After publishing succeeds, it creates a GitHub release with the image
+   digest, upstream lock, and deployment archive.
+
+Only the short-lived repository `GITHUB_TOKEN` is used in these workflows.
+The workflow jobs declare `contents`, `actions`, and `packages` permissions
+for their specific operations. No personal token is stored as a repository
+secret. GitHub Actions used by the project are pinned to verified commits.
+
+To release packaging changes manually, edit `VERSION`, commit the changes,
+and push the matching tag:
+
+```sh
+git add VERSION
+git commit -m 'Release packaging v1.0.1'
+git tag v1.0.1
+git push origin main
+git push origin v1.0.1
+```
+
+Set `VERSION` to `1.0.1` before running that example. The tag must point to
+the intended commit and match the file. The workflow refuses a mismatch.
+Use the Actions UI to rerun a failed build after resolving its error.
+
+Publishing an image does not replace running containers automatically.
+Compose is version-pinned and explicitly opted out of the host's Watchtower.
+To deploy a chosen release, update `IMAGE` in `.env`, then:
+
+```sh
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+Back up the data and TLS volumes before upgrading. To roll back, restore the
+previous image reference and, if a new version changed its state format,
+restore the matching data backup. Each GitHub release includes an immutable
+`ghcr.io/...@sha256:...` image reference.
+
+## Backups and logs
+
+Stop the service for a consistent volume backup. Store archives privately:
+
+```sh
+mkdir -m 0700 -p backups
+docker compose stop
+docker run --rm -v jiotv-go-data:/source:ro -v "$PWD/backups:/backup" \
+  alpine:3.24.3 tar -C /source -czf /backup/data.tar.gz .
+docker run --rm -v jiotv-go-tls:/source:ro -v "$PWD/backups:/backup" \
+  alpine:3.24.3 tar -C /source -czf /backup/tls.tar.gz .
+chmod 0600 backups/*.tar.gz
+docker compose start
+```
+
+The data archive contains login state; the TLS archive contains the private
+certificate key. Use timestamped filenames for multiple backup generations.
+Restore into stopped volumes before starting the matching application image.
+
+Logs are available through `docker compose logs`. The default newly created
+application file-log path points to `/dev/null`, while stdout is collected
+by Docker with 10 MiB × 3 file rotation. A regular file deliberately supplied
+at `/data/logs/jiotv_go.log` is preserved and needs its own rotation policy.
+
+## Local build and tests
+
+GitHub builds are the release source. For local development with Buildx:
+
+```sh
+docker buildx build --platform linux/arm64 --load \
+  --build-arg PACKAGE_VERSION=1.0.0 --build-arg UPSTREAM_VERSION=v3.22.0 \
+  --tag jiotv-go-docker:dev .
+python3 -m unittest discover -s tests -v
+python3 scripts/smoke_test.py jiotv-go-docker:dev --enable-epg
+```
+
+Select `linux/amd64` on an AMD64 machine. On the existing Pi, which does not
+have Buildx installed, a validation build can use the supported legacy path:
+
+```sh
+DOCKER_BUILDKIT=0 docker build --build-arg TARGETARCH=arm64 \
+  --build-arg PACKAGE_VERSION=1.0.0 --build-arg UPSTREAM_VERSION=v3.22.0 \
+  --tag jiotv-go-docker:dev .
+```
+
+Tests use disposable named volumes and loopback-only random ports. They
+check version, TLS verification, M3U, non-root execution, capabilities,
+persistent state, and certificate reuse across restarts. The optional EPG
+test validates actual generated XMLTV. Authenticated stream playback needs
+a Jio account and is not included in the image tests.
+
+## Troubleshooting
+
+| Symptom | Action |
+| --- | --- |
+| GHCR pull denied | Check account, package access, and `read:packages` registry authentication. |
+| Port 5002 already in use | Choose another host port or complete the deliberate native-service migration. |
+| Certificate warning | Trust the local certificate on the client, or supply an appropriate trusted certificate pair in `/tls`. |
+| Health check fails after address change | Certificate must include localhost/127.0.0.1 for health checks; renew it with the required SANs. |
+| EPG missing immediately after startup | Allow initial generation; check `docker compose logs` and upstream connectivity. |
+| Tamil HD channels missing | Remove `sub=hide`, then update the TiviMate playlist. |
+| Playlist loads but a channel fails | Check account entitlement, Jio login, DRM/device support, and playback in the web interface. |
+| Scheduled image build fails | Read the private repository's Actions run; the existing deployed container keeps running. |
+
+## Attribution and references
+
+- [JioTV Go upstream](https://github.com/JioTV-Go/jiotv_go)
+- [Upstream release v3.22.0](https://github.com/JioTV-Go/jiotv_go/releases/tag/v3.22.0)
+- [Upstream IPTV guide](https://github.com/JioTV-Go/jiotv_go/blob/v3.22.0/docs/usage/iptv.md)
+- [Publishing Docker images in GitHub Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
+- [GitHub Container Registry permissions and authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+
+The unmodified upstream executable and its license are included with attribution;
+see `NOTICE.md` and `LICENSE.upstream`.

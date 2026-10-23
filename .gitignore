@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+data/
+certs/
+tls/
+backups/
+dist/
+__pycache__/
+*.pyc
+.DS_Store
+*.key
+*.pem
+*.crt
+*.tar
+*.tar.gz

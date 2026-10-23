@@ -1,0 +1,36 @@
+name: jiotv-go
+services:
+  jiotv-go:
+    image: ${IMAGE:-ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${HOST_PORT:-5002}:5002"
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+      JIOTV_EPG: ${JIOTV_EPG:-true}
+      JIOTV_DRM: ${JIOTV_DRM:-true}
+      JIOTV_TLS_NAMES: ${JIOTV_TLS_NAMES:-localhost,127.0.0.1}
+    volumes:
+      - data:/data
+      - tls:/tls
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE, FOWNER]
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+volumes:
+  data:
+    name: jiotv-go-data
+  tls:
+    name: jiotv-go-tls
