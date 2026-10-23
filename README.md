@@ -1,16 +1,16 @@
-# JioTV Go — private Docker packaging
+# JioTV Go — Docker packaging
 
-Private repository: <https://github.com/naveen-ramalingam/jiotv-go-docker>
+Repository: <https://github.com/naveen-ramalingam/jiotv-go-docker>
 
 - Initial packaging release: **v1.0.0**
 - Upstream application: **JioTV Go v3.22.0**
 - Image: **`ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0`**
 - Platforms: **linux/arm64** (Raspberry Pi 5) and **linux/amd64**
 
-GitHub Actions builds and publishes the image into the account's private
-GitHub Container Registry package. Source and image access require your
-GitHub permissions. New GHCR packages are private by default; this project
-links the image to the private repository through its OCI source label.
+GitHub Actions builds and publishes the image to GitHub Container Registry.
+The repository and container package are public. Cloning the source and
+pulling the image require no GitHub sign-in or registry token. The image
+links to this repository through its OCI source label.
 
 ## Included
 
@@ -33,30 +33,21 @@ Certificates, login state, OTPs, tokens, local `.env`, and data volumes are
 created at deployment time. The build context uses an allowlist and contains
 none of those installation secrets.
 
-## Pull the private image
+## Pull the image
 
-Create a GitHub token with `read:packages` access to this package. Authenticate
-on the Docker host using stdin, rather than placing a token in Compose or the
-image:
+Pull the versioned image without signing in:
 
 ```sh
-read -r -s GHCR_READ_TOKEN
-printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io \
-  --username naveen-ramalingam --password-stdin
-unset GHCR_READ_TOKEN
 docker pull ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0
 ```
 
-`read -s` is for Bash; run these commands in Bash if the current shell does
-not support it. Docker keeps registry authentication in its host credential
-configuration. On a host already using another GitHub account for GHCR,
-review that account's pulls before replacing its registry login, or use a
-separate `DOCKER_CONFIG` directory for this deployment.
+The `latest` tag is also available; use a version tag or release digest for
+repeatable deployments. JioTV still requires your own Jio login after startup.
 
 ## Deploy with Compose
 
-Download the deployment archive from the private GitHub release, or clone
-this repository with the intended GitHub account:
+Download the deployment archive from the GitHub release, or clone this
+public repository:
 
 ```sh
 git clone https://github.com/naveen-ramalingam/jiotv-go-docker.git
@@ -285,14 +276,14 @@ not included in the image tests.
 
 | Symptom | Action |
 | --- | --- |
-| GHCR pull denied | Check account, package access, and `read:packages` registry authentication. |
+| GHCR pull denied | Check the image name/tag and network connectivity. No token is required; if stale saved credentials cause a failure, retry with a separate empty `DOCKER_CONFIG` directory. |
 | Port 5002 already in use | Choose another host port or complete the deliberate native-service migration. |
 | Certificate warning | Trust the local certificate on the client, or supply an appropriate trusted certificate pair in `/tls`. |
 | Health check fails after address change | Certificate must include localhost/127.0.0.1 for health checks; renew it with the required SANs. |
 | EPG missing immediately after startup | Allow initial generation; check `docker compose logs` and upstream connectivity. |
 | Tamil HD channels missing | Remove `sub=hide`, then update the TiviMate playlist. |
 | Playlist loads but a channel fails | Check account entitlement, Jio login, DRM/device support, and playback in the web interface. |
-| Scheduled image build fails | Read the private repository's Actions run; the existing deployed container keeps running. |
+| Scheduled image build fails | Read the repository's Actions run; the existing deployed container keeps running. |
 
 ## Attribution and references
 

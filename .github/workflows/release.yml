@@ -1,4 +1,4 @@
-name: Build and publish private image
+name: Build and publish image
 'on':
   push:
     tags: ['v*']

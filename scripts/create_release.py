@@ -16,7 +16,7 @@ if not digest.startswith('sha256:') or len(digest) != 71:
     raise SystemExit('Missing image digest from successful GitHub build')
 dist = Path('dist')
 dist.mkdir(exist_ok=True)
-notes = f'''Private Docker packaging release {tag}, built by GitHub Actions.
+notes = f'''Docker packaging release {tag}, built by GitHub Actions.
 
 - Image: `{image}:{version}`
 - Moving stable tag: `{image}:latest`
@@ -26,8 +26,8 @@ notes = f'''Private Docker packaging release {tag}, built by GitHub Actions.
 - DRM and EPG enabled; HTTPS and persistent data/TLS volumes included.
 - Credentials and certificates are created at runtime and are not included in the image.
 
-Authenticate to `ghcr.io` with this account and a `read:packages` token before pulling.
-See README.md for deployment, TiviMate playlists, backups, and migration.
+The image is public and can be pulled without a GitHub sign-in or registry token.
+See [README.md](https://github.com/naveen-ramalingam/jiotv-go-docker#readme) for deployment, TiviMate playlists, backups, and migration.
 '''
 (dist / 'release-notes.md').write_text(notes)
 (dist / 'image-digest.txt').write_text(f'{image}@{digest}\n')
