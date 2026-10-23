@@ -22,7 +22,7 @@ links the image to the private repository through its OCI source label.
 - Persistent `/data` for login state and programme guide, and `/tls` for TLS.
 - Application process runs as UID/GID 10001 with no effective capabilities.
   A short root entrypoint prepares volume ownership and then drops privileges.
-- Read-only container root filesystem, bounded Docker logs, health check,
+- Read-only container root filesystem, bounded Docker logs, TLS/static readiness health check,
   restart policy, and Compose deployment.
 - Daily upstream discovery in GitHub Actions at **04:15 IST / 22:45 UTC**.
   A new stable upstream version advances the packaging patch version,
@@ -182,7 +182,8 @@ and can also be run manually. For a newer stable upstream release it:
    `release.yml`. The explicit dispatch is necessary because pushes made by
    `GITHUB_TOKEN` do not trigger another workflow by themselves.
 4. The release workflow validates the project, builds and smoke-tests a
-   native image, then builds and pushes the ARM64/AMD64 manifest on GitHub.
+   native image's local HTTPS/static readiness and persistence, then builds
+   and pushes the ARM64/AMD64 manifest on GitHub.
 5. After publishing succeeds, it creates a GitHub release with the image
    digest, upstream lock, and deployment archive.
 
@@ -267,10 +268,18 @@ DOCKER_BUILDKIT=0 docker build --build-arg TARGETARCH=arm64 \
 ```
 
 Tests use disposable named volumes and loopback-only random ports. They
-check version, TLS verification, M3U, non-root execution, capabilities,
-persistent state, and certificate reuse across restarts. The optional EPG
-test validates actual generated XMLTV. Authenticated stream playback needs
-a Jio account and is not included in the image tests.
+check version, TLS verification, embedded JavaScript delivery, non-root
+execution, capabilities, persistent state, and certificate reuse across
+restarts. `--integration` additionally checks the live homepage and M3U;
+`--enable-epg` includes those checks and validates generated XMLTV.
+
+GitHub-hosted runner requests to the external Jio API returned HTTP 450
+during the initial validation. The GitHub smoke test therefore checks
+self-contained container readiness. Live M3U/EPG integration is checked on
+the Pi where those requests succeed. The runtime health check also measures
+local server readiness, rather than treating a provider API outage as a
+broken container. Authenticated stream playback needs a Jio account and is
+not included in the image tests.
 
 ## Troubleshooting
 

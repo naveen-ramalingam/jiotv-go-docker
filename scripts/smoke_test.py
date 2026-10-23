@@ -18,21 +18,24 @@ def docker(*args, check=True):
     return subprocess.run(['docker', *args], check=check, text=True, capture_output=True)
 
 
-def wait_page(url, context, deadline):
+def wait_ready(url, context, deadline):
     while time.monotonic() < deadline:
         try:
             with urlopen(url, context=context, timeout=5) as response:
-                if response.status == 200 and b'JioTV Go' in response.read():
+                if (response.status == 200 and response.read()
+                        and 'javascript' in response.headers.get('Content-Type', '').lower()):
                     return
         except (OSError, ValueError):
             pass
         time.sleep(1)
-    raise RuntimeError('Container HTTPS page did not become ready')
+    raise RuntimeError('Container HTTPS/static readiness did not become ready')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('image')
+    parser.add_argument('--integration', action='store_true',
+                        help='Check the live Jio API through the homepage and M3U playlist')
     parser.add_argument('--enable-epg', action='store_true')
     args = parser.parse_args()
     name = 'jiotv-smoke-' + uuid.uuid4().hex[:12]
@@ -62,14 +65,17 @@ def main():
                 time.sleep(1)
             context = ssl.create_default_context(cafile=str(cert))
             url = f'https://127.0.0.1:{port}'
-            wait_page(url + '/', context, deadline)
+            wait_ready(url + '/static/internal/utils.js', context, deadline)
             docker('exec', name, '/usr/local/bin/healthcheck.sh')
             process = docker('exec', name, 'sh', '-c', 'cat /proc/$(pidof jiotv_go)/status').stdout
             uid = next(line.split()[1] for line in process.splitlines() if line.startswith('Uid:'))
             caps = next(line.split()[1] for line in process.splitlines() if line.startswith('CapEff:'))
             assert uid == '10001' and int(caps, 16) == 0, 'Application must run unprivileged'
-            with urlopen(url + '/playlist.m3u?q=high&c=split', context=context, timeout=30) as response:
-                assert response.read().startswith(b'#EXTM3U'), 'Playlist is not M3U'
+            if args.integration or args.enable_epg:
+                with urlopen(url + '/', context=context, timeout=30) as response:
+                    assert response.status == 200 and b'JioTV Go' in response.read()
+                with urlopen(url + '/playlist.m3u?q=high&c=split', context=context, timeout=30) as response:
+                    assert response.read().startswith(b'#EXTM3U'), 'Playlist is not M3U'
             if args.enable_epg:
                 while time.monotonic() < deadline:
                     try:
@@ -88,12 +94,14 @@ def main():
             docker('restart', name)
             port = docker('port', name, '5002/tcp').stdout.strip().rsplit(':', 1)[1]
             url = f'https://127.0.0.1:{port}'
-            wait_page(url + '/', context, time.monotonic() + 120)
+            wait_ready(url + '/static/internal/utils.js', context, time.monotonic() + 120)
             docker('cp', name + ':/tls/server.crt', str(cert))
             assert hashlib.sha256(cert.read_bytes()).hexdigest() == original_cert
             assert docker('exec', '--user', '10001:10001', name,
                           'cat', '/data/smoke-marker').stdout == 'persistent-state-check'
-            print('Passed: executable version, trusted HTTPS, M3U, UID 10001, zero capabilities, persistent data and TLS')
+            print('Passed: executable version, trusted HTTPS/static readiness, UID 10001, zero capabilities, persistent data and TLS')
+            if args.integration or args.enable_epg:
+                print('Passed: live Jio homepage and M3U integration')
     except BaseException:
         print(docker('logs', '--tail', '40', name, check=False).stdout)
         raise
