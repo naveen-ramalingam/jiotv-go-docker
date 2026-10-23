@@ -1,7 +1,7 @@
 name: Check upstream stable release
 'on':
   schedule:
-    - cron: '45 22 * * *' # 04:15 IST
+    - cron: '45 22 * * 6' # Sunday 04:15 IST / Saturday 22:45 UTC
   workflow_dispatch:
 permissions:
   contents: read

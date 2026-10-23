@@ -26,7 +26,8 @@ links to this repository through its OCI source label.
   restart policy, and Compose deployment.
 - Explicit, configurable IPv4 DNS in Compose so a broken host-advertised
   IPv6 resolver is not inherited by the application after reboot.
-- Daily upstream discovery in GitHub Actions at **04:15 IST / 22:45 UTC**.
+- Weekly upstream discovery in GitHub Actions on **Sunday at 04:15 IST**
+  (**Saturday at 22:45 UTC**).
   A new stable upstream version advances the packaging patch version,
   refreshes both architecture checksums, and dispatches a GitHub image build.
   GitHub scheduled workflows may start later than their nominal time.
@@ -202,8 +203,9 @@ Watch Live for live viewing; Sun Music HD reports that catch-up is unavailable.
 The packaging version is independent from the upstream application version.
 `v1.0.1` packages upstream `v3.22.0`; the lock file records the mapping.
 
-The GitHub workflow `Check upstream stable release` runs daily at 22:45 UTC
-and can also be run manually. For a newer stable upstream release it:
+The GitHub workflow `Check upstream stable release` runs weekly on Sunday
+at 04:15 IST (Saturday at 22:45 UTC) and can also be run manually. For a
+newer stable upstream release it:
 
 1. Requires official ARM64 and AMD64 assets with GitHub SHA-256 digests.
 2. Updates `upstream.lock.json` and increments the packaging patch version.
