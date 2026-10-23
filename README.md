@@ -2,9 +2,9 @@
 
 Repository: <https://github.com/naveen-ramalingam/jiotv-go-docker>
 
-- Initial packaging release: **v1.0.0**
+- Packaging release: **v1.0.1**
 - Upstream application: **JioTV Go v3.22.0**
-- Image: **`ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0`**
+- Image: **`ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.1`**
 - Platforms: **linux/arm64** (Raspberry Pi 5) and **linux/amd64**
 
 GitHub Actions builds and publishes the image to GitHub Container Registry.
@@ -24,6 +24,8 @@ links to this repository through its OCI source label.
   A short root entrypoint prepares volume ownership and then drops privileges.
 - Read-only container root filesystem, bounded Docker logs, TLS/static readiness health check,
   restart policy, and Compose deployment.
+- Explicit, configurable IPv4 DNS in Compose so a broken host-advertised
+  IPv6 resolver is not inherited by the application after reboot.
 - Daily upstream discovery in GitHub Actions at **04:15 IST / 22:45 UTC**.
   A new stable upstream version advances the packaging patch version,
   refreshes both architecture checksums, and dispatches a GitHub image build.
@@ -38,7 +40,7 @@ none of those installation secrets.
 Pull the versioned image without signing in:
 
 ```sh
-docker pull ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0
+docker pull ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.1
 ```
 
 The `latest` tag is also available; use a version tag or release digest for
@@ -58,10 +60,12 @@ cp .env.example .env
 Edit `.env` for the host's LAN address and available port. The example is:
 
 ```dotenv
-IMAGE=ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0
+IMAGE=ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.1
 BIND_IP=192.168.1.50
 HOST_PORT=5002
 TZ=Asia/Kolkata
+JIOTV_DNS_PRIMARY=1.1.1.1
+JIOTV_DNS_SECONDARY=8.8.8.8
 JIOTV_EPG=true
 JIOTV_DRM=true
 JIOTV_TLS_NAMES=192.168.1.50,dietpi.lan
@@ -71,6 +75,8 @@ JIOTV_TLS_NAMES=192.168.1.50,dietpi.lan
 the internal health check can validate TLS. `JIOTV_TLS_NAMES` adds the
 addresses and hostnames clients will use. If `.env` is absent, Compose binds
 only to loopback by default.
+
+Use the new Pi's actual IP address for `BIND_IP` and `JIOTV_TLS_NAMES`.
 
 Then:
 
@@ -91,6 +97,38 @@ The default volumes are `jiotv-go-data` and `jiotv-go-tls`. Keep both when
 recreating the container. Changing `JIOTV_TLS_NAMES` does not replace an
 existing certificate automatically; renew the certificate deliberately if
 the deployment address changes.
+
+## DNS and reboot behaviour
+
+Release **v1.0.1** adds explicit Compose DNS defaults: `1.1.1.1` and `8.8.8.8`.
+They are independent of the host's advertised resolver list and remain in
+the container configuration across reboots. Set `JIOTV_DNS_PRIMARY` and
+`JIOTV_DNS_SECONDARY` in `.env` to change them. If the LAN blocks public DNS,
+or the deployment needs the router's resolver, set both to a working LAN
+DNS address. The existing DietPi deployment uses its router at `192.168.1.1`.
+
+The original DietPi reboot failure was a DHCPv6 event overwriting host DNS
+with an unreachable IPv6 resolver. Login data and the running container were
+intact. The fix was verified through a full host reboot, logged-in channel
+listing, XMLTV, and Star Vijay HD / Sun Music HD stream-manifest requests.
+
+These DNS settings belong to **Compose**, not the image. When creating a
+container through another tool or `docker run`, set equivalent DNS options,
+for example `--dns 1.1.1.1 --dns 8.8.8.8`. An image alone does not control
+Docker's DNS configuration. The host also needs working DNS to download
+images; Compose's settings only apply after the container is created.
+
+Check the chosen resolver from the host, then from the running container:
+
+```sh
+nslookup jiotvapi.media.jio.com 1.1.1.1
+docker compose exec jiotv-go nslookup jiotvapi.media.jio.com
+```
+
+After restarting the Pi, check `docker compose ps`, open the logged-in web
+interface, and play a live channel. Persistent volumes retain the account
+session, certificate and EPG. Provider outages, account expiry and blocked
+network access can still affect playback independently of this DNS fix.
 
 ## Existing Pi installation and migration
 
@@ -156,13 +194,13 @@ A self-signed certificate may be rejected by a TV app. It needs a certificate
 the app trusts, or a separately configured LAN proxy, if SSL import fails.
 DRM playback also depends on the player/device. A successful playlist import
 does not validate every stream. The checked upstream playlist contains no
-TiviMate catch-up attributes; the web UI's Catchup toggle is a separate,
-unverified feature.
+TiviMate catch-up attributes. In the web UI, turn Catchup off or choose
+Watch Live for live viewing; Sun Music HD reports that catch-up is unavailable.
 
 ## Updates and releases
 
 The packaging version is independent from the upstream application version.
-`v1.0.0` packages upstream `v3.22.0`; the lock file records the mapping.
+`v1.0.1` packages upstream `v3.22.0`; the lock file records the mapping.
 
 The GitHub workflow `Check upstream stable release` runs daily at 22:45 UTC
 and can also be run manually. For a newer stable upstream release it:
@@ -188,13 +226,13 @@ and push the matching tag:
 
 ```sh
 git add VERSION
-git commit -m 'Release packaging v1.0.1'
-git tag v1.0.1
+git commit -m 'Release packaging v1.0.2'
+git tag v1.0.2
 git push origin main
-git push origin v1.0.1
+git push origin v1.0.2
 ```
 
-Set `VERSION` to `1.0.1` before running that example. The tag must point to
+Set `VERSION` to `1.0.2` before running that example. The tag must point to
 the intended commit and match the file. The workflow refuses a mismatch.
 Use the Actions UI to rerun a failed build after resolving its error.
 
@@ -243,7 +281,7 @@ GitHub builds are the release source. For local development with Buildx:
 
 ```sh
 docker buildx build --platform linux/arm64 --load \
-  --build-arg PACKAGE_VERSION=1.0.0 --build-arg UPSTREAM_VERSION=v3.22.0 \
+  --build-arg PACKAGE_VERSION=1.0.1 --build-arg UPSTREAM_VERSION=v3.22.0 \
   --tag jiotv-go-docker:dev .
 python3 -m unittest discover -s tests -v
 python3 scripts/smoke_test.py jiotv-go-docker:dev --enable-epg
@@ -254,7 +292,7 @@ have Buildx installed, a validation build can use the supported legacy path:
 
 ```sh
 DOCKER_BUILDKIT=0 docker build --build-arg TARGETARCH=arm64 \
-  --build-arg PACKAGE_VERSION=1.0.0 --build-arg UPSTREAM_VERSION=v3.22.0 \
+  --build-arg PACKAGE_VERSION=1.0.1 --build-arg UPSTREAM_VERSION=v3.22.0 \
   --tag jiotv-go-docker:dev .
 ```
 

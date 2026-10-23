@@ -7,9 +7,9 @@ COPY scripts/fetch_binary.py scripts/release_utils.py ./scripts/
 RUN python3 scripts/fetch_binary.py --arch "${TARGETARCH}" --output /out/jiotv_go
 
 FROM alpine:3.24.3
-ARG PACKAGE_VERSION=1.0.0
+ARG PACKAGE_VERSION=1.0.1
 ARG UPSTREAM_VERSION=v3.22.0
-LABEL org.opencontainers.image.title="JioTV Go private Docker packaging" \
+LABEL org.opencontainers.image.title="JioTV Go Docker packaging" \
       org.opencontainers.image.source="https://github.com/naveen-ramalingam/jiotv-go-docker" \
       org.opencontainers.image.version="${PACKAGE_VERSION}" \
       org.opencontainers.image.licenses="CC-BY-4.0" \

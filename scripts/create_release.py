@@ -24,6 +24,7 @@ notes = f'''Docker packaging release {tag}, built by GitHub Actions.
 - Platforms: `linux/amd64`, `linux/arm64`
 - Upstream JioTV Go: [{lock["version"]}]({lock["release_url"]})
 - DRM and EPG enabled; HTTPS and persistent data/TLS volumes included.
+- Deployment Compose includes configurable IPv4 DNS for reliable resolver selection after reboot.
 - Credentials and certificates are created at runtime and are not included in the image.
 
 The image is public and can be pulled without a GitHub sign-in or registry token.
@@ -33,7 +34,7 @@ See [README.md](https://github.com/naveen-ramalingam/jiotv-go-docker#readme) for
 (dist / 'image-digest.txt').write_text(f'{image}@{digest}\n')
 bundle = dist / f'jiotv-go-docker-{tag}.tar.gz'
 with tarfile.open(bundle, 'w:gz') as archive:
-    for name in ('compose.yaml', '.env.example', 'README.md', 'VERSION', 'upstream.lock.json',
+    for name in ('compose.yaml', '.env.example', 'README.md', 'CHANGELOG.md', 'VERSION', 'upstream.lock.json',
                  'LICENSE.upstream', 'NOTICE.md'):
         archive.add(name, arcname=name)
 exists = subprocess.run(['gh', 'release', 'view', tag], capture_output=True).returncode == 0

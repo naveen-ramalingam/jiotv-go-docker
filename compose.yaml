@@ -1,9 +1,12 @@
 name: jiotv-go
 services:
   jiotv-go:
-    image: ${IMAGE:-ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.0}
+    image: ${IMAGE:-ghcr.io/naveen-ramalingam/jiotv-go-docker:1.0.1}
     restart: unless-stopped
     init: true
+    dns:
+      - ${JIOTV_DNS_PRIMARY:-1.1.1.1}
+      - ${JIOTV_DNS_SECONDARY:-8.8.8.8}
     ports:
       - "${BIND_IP:-127.0.0.1}:${HOST_PORT:-5002}:5002"
     environment:
