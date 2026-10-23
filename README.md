@@ -16,7 +16,7 @@ links the image to the private repository through its OCI source label.
 
 - Official upstream executables pinned by release, architecture, size, and
   SHA-256 in `upstream.lock.json`.
-- DRM and EPG enabled by default. JioTV Go refreshes EPG every 24 hours.
+- DRM and EPG enabled by default. JioTV Go refreshes EPG automatically each day.
 - HTTPS on container port 5002, with a per-installation certificate generated
   on first startup and preserved across restarts.
 - Persistent `/data` for login state and programme guide, and `/tls` for TLS.

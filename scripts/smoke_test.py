@@ -86,6 +86,8 @@ def main():
             docker('exec', '--user', '10001:10001', name, 'sh', '-c',
                    "printf 'persistent-state-check' > /data/smoke-marker")
             docker('restart', name)
+            port = docker('port', name, '5002/tcp').stdout.strip().rsplit(':', 1)[1]
+            url = f'https://127.0.0.1:{port}'
             wait_page(url + '/', context, time.monotonic() + 120)
             docker('cp', name + ':/tls/server.crt', str(cert))
             assert hashlib.sha256(cert.read_bytes()).hexdigest() == original_cert
